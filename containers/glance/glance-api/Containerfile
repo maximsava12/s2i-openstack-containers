@@ -81,6 +81,11 @@ RUN pip3 install --no-cache-dir --prefix=/usr \
 RUN mkdir -p /configfiles/etc/glance && \
     cp -a ${SERVICE_SRC}/etc/glance-api.conf /configfiles/etc/glance/ && \
     cp -a ${SERVICE_SRC}/etc/glance-api-paste.ini /configfiles/etc/glance/ && \
+    cp -a ${SERVICE_SRC}/etc/glance-cache.conf /configfiles/etc/glance/ && \
+    cp -a ${SERVICE_SRC}/etc/glance-scrubber.conf /configfiles/etc/glance/ && \
+    cp -a ${SERVICE_SRC}/etc/glance-image-import.conf.sample \
+          /configfiles/etc/glance/glance-image-import.conf && \
+    cp -a ${SERVICE_SRC}/etc/schema-image.json /configfiles/etc/glance/ && \
     cp -a ${SERVICE_SRC}/etc/metadefs /configfiles/etc/glance/metadefs && \
     cp -a /usr/etc/glance/rootwrap.conf /configfiles/etc/glance/ && \
     cp -a /usr/etc/glance/rootwrap.d /configfiles/etc/glance/
@@ -114,16 +119,32 @@ RUN mkdir -p /etc/glance /var/log/glance /var/lib/glance /var/lib/glance/images 
     chown -R glance:glance /etc/glance /var/log/glance /var/lib/glance /var/cache/glance && \
     chmod 770 /var/log/glance /var/lib/glance /var/cache/glance
 
+# Config files from upstream source (via build stage)
 COPY --from=build /configfiles/etc/glance/glance-api.conf /etc/glance/glance-api.conf
 COPY --from=build /configfiles/etc/glance/glance-api-paste.ini /etc/glance/glance-api-paste.ini
+COPY --from=build /configfiles/etc/glance/glance-cache.conf /etc/glance/glance-cache.conf
+COPY --from=build /configfiles/etc/glance/glance-scrubber.conf /etc/glance/glance-scrubber.conf
+COPY --from=build /configfiles/etc/glance/glance-image-import.conf /etc/glance/glance-image-import.conf
+COPY --from=build /configfiles/etc/glance/schema-image.json /etc/glance/schema-image.json
 COPY --from=build /configfiles/etc/glance/metadefs /etc/glance/metadefs
 COPY --from=build /configfiles/etc/glance/rootwrap.conf /etc/glance/rootwrap.conf
 COPY --from=build /configfiles/etc/glance/rootwrap.d /etc/glance/rootwrap.d
 
-RUN chmod 640 /etc/glance/glance-api.conf /etc/glance/glance-api-paste.ini /etc/glance/rootwrap.conf && \
-    chown glance:glance /etc/glance/glance-api.conf /etc/glance/glance-api-paste.ini /etc/glance/rootwrap.conf && \
+# sudoers rule — allows glance user to call glance-rootwrap as root
+COPY glance-api/config/etc/sudoers.d/glance /etc/sudoers.d/glance
+
+RUN chmod 640 /etc/glance/glance-api.conf /etc/glance/glance-api-paste.ini \
+              /etc/glance/glance-cache.conf /etc/glance/glance-scrubber.conf \
+              /etc/glance/glance-image-import.conf /etc/glance/schema-image.json \
+              /etc/glance/rootwrap.conf && \
+    chmod 440 /etc/sudoers.d/glance && \
+    chown glance:glance /etc/glance/glance-api.conf /etc/glance/glance-api-paste.ini \
+                        /etc/glance/glance-cache.conf /etc/glance/glance-scrubber.conf \
+                        /etc/glance/glance-image-import.conf /etc/glance/schema-image.json \
+                        /etc/glance/rootwrap.conf && \
     chown -R glance:glance /etc/glance/metadefs /etc/glance/rootwrap.d && \
-    chmod 640 /etc/glance/metadefs/* /etc/glance/rootwrap.d/*
+    chmod 640 /etc/glance/metadefs/* && \
+    chmod 640 /etc/glance/rootwrap.d/* 2>/dev/null || true
 
 # WSGI script for httpd
 RUN mkdir -p /var/www/cgi-bin/glance
