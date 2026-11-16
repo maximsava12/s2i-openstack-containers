@@ -20,6 +20,8 @@ jobs:
 
       - name: Sync with upstream
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/openstack-k8s-operators/s2i-openstack-containers.git
           git fetch upstream
           git checkout main
